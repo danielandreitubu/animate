@@ -2,101 +2,115 @@ import { useEffect, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { Text } from "@react-three/drei";
+import { Color } from "three";
 
 function Box(props) {
-  // This reference gives us direct access to the THREE.Mesh object
   const ref = useRef();
-  // Hold state for hovered and clicked events
   const [hovered, hover] = useState(false);
   const [clicked, click] = useState(false);
-  // Subscribe this component to the render-loop, rotate the mesh every frame
   useFrame((state, delta) => (ref.current.rotation.x += delta));
-  // Return the view, these are regular Threejs elements expressed in JSX
 
   return (
     <mesh
       {...props}
       ref={ref}
       scale={clicked ? 1.5 : 1}
-      onClick={(event) => click(!clicked)}
-      onPointerOver={(event) => hover(true)}
-      onPointerOut={(event) => hover(false)}
+      onClick={() => click(!clicked)}
+      onPointerOver={() => hover(true)}
+      onPointerOut={() => hover(false)}
     >
       <boxGeometry args={[1.5, 1.5, 1.5]} />
-      <meshStandardMaterial
-        attach="material"
-        color={hovered ? "hotpink" : "purple"}
-      />
+      <meshStandardMaterial attach="material" color={props.color} />
     </mesh>
   );
 }
 
 export default function App() {
   const [display, setDisplay] = useState([]);
+  const [boxData, setBoxData] = useState({ positions: [], colors: [] });
+  const [textPositions, setTextPositions] = useState([]);
 
   useEffect(() => {
     getRandomWord();
+    generateBoxData();
+    generateTextPositions();
   }, []);
 
   const getRandomWord = async () => {
-    let content = [];
+    try {
+      const numWords = 100;
+      const fetchPromises = [];
 
-    for (let i = 0; i <= 100; i++) {
-      const result = await fetch("https://random-word-api.herokuapp.com/word");
-      const word = await result.json();
+      for (let i = 0; i < numWords; i++) {
+        fetchPromises.push(fetch("https://random-word-api.herokuapp.com/word").then(response => response.json()));
+      }
 
-      content.push(word[0]);
+      const words = await Promise.all(fetchPromises);
+      setDisplay(words);
+    } catch (error) {
+      console.error("Error fetching random words:", error);
     }
-
-    setDisplay(content);
   };
 
-  function getRandomColor() {
-    var letters = "0123456789ABCDEF";
-    var color = "#";
-    for (var i = 0; i < 6; i++) {
-      color += letters[Math.floor(Math.random() * 16)];
-    }
-    return color;
-  }
+  const generateBoxData = () => {
+    const numBoxes = 2000;
+    const boxPositions = [];
+    const boxColors = [];
 
-  console.log(display);
+    for (let i = 0; i < numBoxes; i++) {
+      const x = (Math.random() * 200 - 100) * 2; // Wider spacing (-40 to 40)
+      const y = (Math.random() * 200 - 100) * 2; // Wider spacing (-40 to 40)
+      const z = (Math.random() * 200 - 100) * 2; // Wider spacing (-40 to 40)
+      const color = new Color(Math.random(), Math.random(), Math.random());
+
+      boxPositions.push([x, y, z]);
+      boxColors.push(color);
+    }
+
+    setBoxData({ positions: boxPositions, colors: boxColors });
+  };
+
+  const generateTextPositions = () => {
+    const numWords = 1000;
+    const positions = [];
+
+    for (let i = 0; i < numWords; i++) {
+      const x = (Math.random() * 60 - 30) * 2; // Wider spacing (-40 to 40)
+      const y = (Math.random() * 60 - 30) * 2; // Wider spacing (-40 to 40)
+      const z = (Math.random() * 60 - 30) * 2; // Wider spacing (-40 to 40)
+      
+      positions.push([x, y, z]);
+    }
+
+    setTextPositions(positions);
+  };
 
   return (
-    <div style={{ width: "100%", height: "800px" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", overflow: "hidden", backgroundColor: "black" }}>
       <Canvas>
-        {display &&
-          display.map((item) => {
-            return (
-              <Text
-                position={[
-                  Math.ceil(Math.random() * 99) *
-                    (Math.round(Math.random()) ? 1 : -1),
-                  Math.ceil(Math.random() * 99) *
-                    (Math.round(Math.random()) ? 1 : -1),
-                  Math.ceil(Math.random() * 99) *
-                    (Math.round(Math.random()) ? 1 : -1),
-                ]}
-                color={getRandomColor()}
-                fontSize={5}
-                maxWidth={1000}
-                lineHeight={5}
-                letterSpacing={0.5}
-                textAlign={"center"}
-                font={
-                  "https://fonts.gstatic.com/s/indieflower/v13/m8JVjfNVeKWVnh3QMuKkFcZG.ttf"
-                }
-              >
-                {item}
-              </Text>
-            );
-          })}
-        {}
+        {boxData.positions.map((position, index) => (
+          <Box key={index} position={position} color={boxData.colors[index]} />
+        ))}
+
+        {display.map((item, index) => (
+          <Text
+            key={index}
+            position={textPositions[index]}
+            color={new Color(Math.random(), Math.random(), Math.random())}
+            fontSize={1}
+            maxWidth={1000}
+            lineHeight={1}
+            letterSpacing={0.1}
+            textAlign="center"
+            font="https://fonts.gstatic.com/s/indieflower/v13/m8JVjfNVeKWVnh3QMuKkFcZG.ttf"
+          >
+            {item}
+          </Text>
+        ))}
+ 
         <spotLight position={[5, 5, 5]} angle={0.15} penumbra={1} />
         <pointLight position={[40, 20, 10]} />
         <ambientLight intensity={0.5} />
-        <Box position={[-1.2, 0, 0]} />
-        <Box position={[1.2, 0, 0]} />
         <OrbitControls />
       </Canvas>
     </div>
